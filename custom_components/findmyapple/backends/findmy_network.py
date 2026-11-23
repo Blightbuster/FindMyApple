@@ -74,6 +74,32 @@ def describe(accessory: FindMyAccessory) -> TagInfo:
     return TagInfo(id=tag_id(accessory), name=accessory.name or "Tag", model=accessory.model)
 
 
+async def fetch_emojis(client: Any) -> dict[str, str]:
+    """The emoji the owner gave each tag, by tag id. Cosmetic, so any failure just means "none".
+
+    The library drops it when it builds an accessory, but the naming record it comes from is in the
+    same zone, so one more fetch with the keys the client already holds gets it.
+    """
+    from findmy.cloudkit.beacons import decrypt_records, group_records
+
+    try:
+        zone_keys = await client.zone_keys()
+        store = client.store
+        records = await store.fetch_records()
+        decrypted = decrypt_records(
+            records, zone_keys, default_master_keys=await store.zone_record_defaults(zone_keys)
+        )
+        emojis: dict[str, str] = {}
+        for group in group_records(decrypted):
+            emoji = group.naming.values.get("emoji") if group.naming is not None else None
+            if isinstance(emoji, str) and emoji.strip():
+                emojis[group.beacon.name] = emoji.strip()[:16]
+        return emojis
+    except Exception:
+        _LOGGER.debug("Could not read the tags' emoji", exc_info=True)
+        return {}
+
+
 async def async_open_machine(root: Path, *, provision: bool) -> EmulatedMacAnisetteProvider:
     """Open (and on first use provision) the account's emulated Mac. Blocking work runs in a thread."""
 
@@ -124,9 +150,15 @@ def classify(err: BaseException) -> Exception:
 class TagSession:
     """A signed-in account plus the accessories to locate. Used by the coordinator."""
 
-    def __init__(self, account: AsyncAppleAccount, accessories: dict[str, FindMyAccessory]) -> None:
+    def __init__(
+        self,
+        account: AsyncAppleAccount,
+        accessories: dict[str, FindMyAccessory],
+        emojis: dict[str, str] | None = None,
+    ) -> None:
         self.account = account
         self.accessories = accessories
+        self.emojis = emojis or {}
         self._last_probe: dict[str, datetime] = {}
 
     @classmethod
@@ -136,12 +168,13 @@ class TagSession:
         for raw in state.get("accessories", []):
             accessory = FindMyAccessory.from_json(raw)
             accessories[tag_id(accessory)] = accessory
-        return cls(account, accessories)
+        return cls(account, accessories, dict(state.get("emojis") or {}))
 
     def to_state(self) -> dict[str, Any]:
         return {
             "account": self.account.to_json(),
             "accessories": [a.to_json() for a in self.accessories.values()],
+            "emojis": self.emojis,
         }
 
     async def close(self) -> None:
@@ -178,7 +211,9 @@ class TagSession:
         items: dict[str, TrackedItem] = {}
         for accessory in wanted:
             report = reports.get(accessory)
-            items[tag_id(accessory)] = report_to_item(accessory, report)
+            item = report_to_item(accessory, report)
+            item.emoji = self.emojis.get(item.id)
+            items[item.id] = item
         return items
 
     async def _probe(self, accessories: list[FindMyAccessory], now: datetime) -> None:

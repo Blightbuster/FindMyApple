@@ -80,6 +80,7 @@ async def test_one_login_covers_devices_and_tags(hass: HomeAssistant, apple: App
     stored = await account_state_store(hass, "alex@example.com").async_load()
     assert stored["account"] == {"type": "account", "fake": True}
     assert len(stored["accessories"]) == 2
+    assert stored["emojis"] == {"T1": "🔑"}  # the emoji the owner gave the tag in Find My
     assert apple.fmip.instances[0].fetch_calls == [False]  # listing devices must not wake their GPS
 
 
@@ -194,3 +195,17 @@ async def test_options_reject_min_above_max(hass: HomeAssistant, apple: Apple) -
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert entry.options[CONF_TRACKED_ITEMS] == ["iphone-1", "ipad-1"]
+
+
+def test_two_factor_methods_are_described_for_people(monkeypatch) -> None:
+    from custom_components.findmyapple import config_flow as cf
+
+    monkeypatch.setattr(fn, "two_factor_label", lambda method: method)  # the flow's technical labels
+    label, phrase = cf._DELIVERY_LABELS, cf._DELIVERY_PHRASES
+    assert cf._delivery_text(label, "de", "trusted_device").startswith("Vertrauenswürdiges Apple-Gerät")
+    assert cf._delivery_text(label, "de-AT", "sms +49 •••• ••••53") == "SMS an +49 •••• ••••53"
+    assert cf._delivery_text(label, "en", "sms +49 •••• ••••53") == "Text message to +49 •••• ••••53"
+    assert cf._delivery_text(label, "fr", "trusted_device").startswith("Trusted Apple device")  # English fallback
+    assert cf._delivery_text(phrase, "en", "trusted_device") == "appears on your trusted Apple device"
+    assert cf._delivery_text(phrase, "de", "sms +49 ••53") == "per SMS an +49 ••53 gesendet wurde"
+    assert cf._delivery_text(label, "en", "SomethingNew") == "SomethingNew"  # unknown methods stay readable

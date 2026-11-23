@@ -69,6 +69,38 @@ def _login_schema(defaults: Mapping[str, Any]) -> vol.Schema:
     )
 
 
+# Where Apple sends the two-factor code. A selector option's label is literal text, so the two
+# supported languages are spelled out here; anything but German gets English.
+_DELIVERY_LABELS = {
+    "en": {
+        "trusted_device": "Trusted Apple device (the code appears on the device)",
+        "sms": "Text message to {phone}",
+    },
+    "de": {
+        "trusted_device": "Vertrauenswürdiges Apple-Gerät (der Code erscheint auf dem Gerät)",
+        "sms": "SMS an {phone}",
+    },
+}
+_DELIVERY_PHRASES = {
+    "en": {"trusted_device": "appears on your trusted Apple device", "sms": "was sent by text message to {phone}"},
+    "de": {
+        "trusted_device": "auf deinem vertrauenswürdigen Apple-Gerät erscheint",
+        "sms": "per SMS an {phone} gesendet wurde",
+    },
+}
+
+
+def _delivery_text(texts: dict[str, dict[str, str]], language: str, method: Any) -> str:
+    """Describe a two-factor method for people: "trusted_device" and "sms +49 ..." are for logs."""
+    from .backends.findmy_network import two_factor_label
+
+    technical = two_factor_label(method)
+    kind, _, phone = technical.partition(" ")
+    if kind not in ("trusted_device", "sms"):
+        return technical
+    return texts["de" if language.startswith("de") else "en"][kind].format(phone=phone)
+
+
 def _digits(code: str) -> str:
     return "".join(ch for ch in code if ch.isdigit())
 
@@ -88,6 +120,7 @@ class FindMyAppleConfigFlow(ConfigFlow, domain=DOMAIN):
         self._passcode_attempts = 0
         self._devices: dict[str, TrackedItem] = {}
         self._accessories: list[FindMyAccessory] = []
+        self._emojis: dict[str, str] = {}
 
     @staticmethod
     @callback
@@ -107,7 +140,8 @@ class FindMyAppleConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             username = user_input[CONF_USERNAME].strip()
-            await self.async_set_unique_id(username.lower())
+            # A new attempt replaces an abandoned one instead of being refused as "already in progress".
+            await self.async_set_unique_id(username.lower(), raise_on_progress=False)
             self._abort_if_unique_id_configured()
             self._input = {**user_input, CONF_USERNAME: username}
             result = await self._async_login(errors)
@@ -151,11 +185,13 @@ class FindMyAppleConfigFlow(ConfigFlow, domain=DOMAIN):
         return await self._async_after_login()
 
     async def async_step_2fa_method(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
-        from .backends.findmy_network import two_factor_label
-
         if user_input is not None:
             return await self._async_request_code(self._methods[int(user_input[CONF_METHOD])])
-        options = [SelectOptionDict(value=str(i), label=two_factor_label(m)) for i, m in enumerate(self._methods)]
+        language = self.hass.config.language
+        options = [
+            SelectOptionDict(value=str(i), label=_delivery_text(_DELIVERY_LABELS, language, m))
+            for i, m in enumerate(self._methods)
+        ]
         return self.async_show_form(
             step_id="2fa_method",
             data_schema=vol.Schema(
@@ -175,8 +211,6 @@ class FindMyAppleConfigFlow(ConfigFlow, domain=DOMAIN):
     async def async_step_code(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         from findmy import LoginState
 
-        from .backends.findmy_network import two_factor_label
-
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
@@ -191,7 +225,9 @@ class FindMyAppleConfigFlow(ConfigFlow, domain=DOMAIN):
             step_id="code",
             data_schema=CODE_SCHEMA,
             errors=errors,
-            description_placeholders={"delivery": two_factor_label(self._method)},
+            description_placeholders={
+                "delivery": _delivery_text(_DELIVERY_PHRASES, self.hass.config.language, self._method)
+            },
         )
 
     # ============================== devices, then the keychain for tags ==========================
@@ -239,9 +275,12 @@ class FindMyAppleConfigFlow(ConfigFlow, domain=DOMAIN):
             record = self._records[int(user_input[CONF_RECORD])]
             passcode = user_input.pop(CONF_PASSCODE)
             self._passcode_attempts += 1
+            from .backends.findmy_network import fetch_emojis
+
             try:
                 await self._client.unlock(record, passcode)
                 self._accessories = list(await self._client.accessories())
+                self._emojis = await fetch_emojis(self._client)
             except Exception as err:
                 _LOGGER.debug("Keychain unlock failed: %s", err)
                 if self._passcode_attempts >= MAX_PASSCODE_ATTEMPTS:
@@ -280,6 +319,7 @@ class FindMyAppleConfigFlow(ConfigFlow, domain=DOMAIN):
             state = {
                 "account": self._account.to_json(),
                 "accessories": [a.to_json() for a in self._accessories],
+                "emojis": self._emojis,
             }
             await account_state_store(self.hass, self.unique_id).async_save(state)
             self.async_remove()  # close connections; the entry restores the session from the store

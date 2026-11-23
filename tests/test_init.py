@@ -86,6 +86,25 @@ async def test_setup_creates_entities_for_devices_and_tags(hass: HomeAssistant, 
     assert apple.fmip.instances[-1].fetch_calls == [True]
 
 
+async def test_tag_emoji_becomes_the_picture_and_devices_get_type_icons(hass: HomeAssistant, apple: Apple) -> None:
+    await _setup(hass, _entry())
+    tag = hass.states.get(f"device_tracker.{TAG_SLUG}")
+    assert tag.attributes["entity_picture"].startswith("data:image/svg+xml")
+    assert "%F0%9F%94%91" in tag.attributes["entity_picture"]  # the key emoji, URL-encoded
+    assert tag.attributes["icon"] == "mdi:tag"
+    phone = hass.states.get("device_tracker.alex_s_iphone")
+    assert phone.attributes["icon"] == "mdi:cellphone"
+    assert "entity_picture" not in phone.attributes  # no emoji: the icon shows
+
+
+async def test_tag_without_emoji_keeps_the_tag_icon(hass: HomeAssistant, apple: Apple) -> None:
+    apple.session.emojis = {}
+    await _setup(hass, _entry())
+    tag = hass.states.get(f"device_tracker.{TAG_SLUG}")
+    assert "entity_picture" not in tag.attributes
+    assert tag.attributes["icon"] == "mdi:tag"
+
+
 async def test_untracked_tag_is_not_fetched(hass: HomeAssistant, apple: Apple) -> None:
     await _setup(hass, _entry(["iphone-1"]))
     assert apple.session.fetches == []

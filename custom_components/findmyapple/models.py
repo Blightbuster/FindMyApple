@@ -30,6 +30,7 @@ class TrackedItem:
     online: bool | None = None
     confidence: int | None = None  # Find My network reports only
     can_play_sound: bool = False
+    emoji: str | None = None  # the emoji the owner gave the tag in Find My
     raw: dict[str, Any] = field(default_factory=dict, repr=False)  # diagnostics only
 
     @property
@@ -66,6 +67,7 @@ class TrackedItem:
             "position_type": self.position_type,
             "battery_level": self.battery_level,
             "battery_charging": self.battery_charging,
+            "emoji": self.emoji,
         }
 
     @classmethod
@@ -85,5 +87,6 @@ class TrackedItem:
             position_type=data.get("position_type"),
             battery_level=data.get("battery_level"),
             battery_charging=data.get("battery_charging"),
+            emoji=data.get("emoji"),
             is_old=True,
         )

@@ -49,7 +49,7 @@
       },
       "code": {
         "title": "Two-factor authentication",
-        "description": "Enter the 6-digit code ({delivery}).",
+        "description": "Enter the 6-digit code that {delivery}.",
         "data": {
           "code": "Verification code"
         }

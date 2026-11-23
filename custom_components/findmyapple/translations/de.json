@@ -49,7 +49,7 @@
       },
       "code": {
         "title": "Zwei-Faktor-Authentifizierung",
-        "description": "Gib den 6-stelligen Code ein ({delivery}).",
+        "description": "Gib den 6-stelligen Code ein, der {delivery}.",
         "data": {
           "code": "Bestätigungscode"
         }

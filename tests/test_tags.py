@@ -95,3 +95,57 @@ async def test_state_round_trip_keeps_alignment() -> None:
 def test_apple_devices_are_recognised() -> None:
     assert fn.TagInfo("x", "Phone", "iPhone17,1").is_apple_device
     assert not fn.TagInfo("x", "Keys", "PAD Tag").is_apple_device
+
+
+async def test_emoji_is_set_on_the_located_tag_and_survives_a_restart() -> None:
+    tag = make_accessory("Keys", "A", aligned=NOW - timedelta(hours=2), index=5000)
+    session = fn.TagSession(FakeAccount(), {"A": tag}, {"A": "🔑"})
+    assert (await session.fetch(["A"], now=NOW))["A"].emoji == "🔑"
+    assert session.to_state()["emojis"] == {"A": "🔑"}  # saved with the session, restored by from_state
+    assert fn.TagSession(FakeAccount(), {"A": tag}).emojis == {}  # sessions saved before emoji existed have none
+
+
+class _Store:
+    async def fetch_records(self):
+        return ["encrypted"]
+
+    async def zone_record_defaults(self, keys):
+        return {}
+
+
+class _Client:
+    store = _Store()
+
+    async def zone_keys(self):
+        return ["zone-key"]
+
+
+async def test_emoji_come_from_the_naming_records(monkeypatch) -> None:
+    from types import SimpleNamespace
+
+    import findmy.cloudkit.beacons as beacons
+
+    def group(name, values):
+        naming = None if values is None else SimpleNamespace(values=values)
+        return SimpleNamespace(beacon=SimpleNamespace(name=name), naming=naming)
+
+    monkeypatch.setattr(beacons, "decrypt_records", lambda records, keys, default_master_keys: ["decrypted"])
+    monkeypatch.setattr(
+        beacons,
+        "group_records",
+        lambda records: [
+            group("T1", {"emoji": " 🔑 "}),
+            group("T2", None),
+            group("T3", {}),
+            group("T4", {"emoji": ""}),
+        ],
+    )
+    assert await fn.fetch_emojis(_Client()) == {"T1": "🔑"}  # tags without an emoji are simply absent
+
+
+async def test_failing_to_read_emoji_is_not_fatal() -> None:
+    class Broken:
+        async def zone_keys(self):
+            raise RuntimeError("zone unavailable")
+
+    assert await fn.fetch_emojis(Broken()) == {}

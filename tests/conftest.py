@@ -115,6 +115,7 @@ class FakeSession:
             "T1": make_accessory(TAG_NAME, "T1", aligned=NOW, index=208, model=TAG_MODEL),
             "P1": make_accessory("Own iPhone", "P1", aligned=NOW, index=1, model="iPhone17,1"),
         }
+        self.emojis = {"T1": "🔑"}
         self.fetches: list[list[str]] = []
         self.error: Exception | None = None
 
@@ -123,7 +124,10 @@ class FakeSession:
         if self.error is not None:
             raise self.error
         report = FakeReport(TAG_LATITUDE, TAG_LONGITUDE, TAG_ACCURACY, datetime.now(UTC) - timedelta(minutes=16))
-        return {i: fn.report_to_item(self.accessories[i], report) for i in tracked if i in self.accessories}
+        items = {i: fn.report_to_item(self.accessories[i], report) for i in tracked if i in self.accessories}
+        for item_id, item in items.items():
+            item.emoji = self.emojis.get(item_id)
+        return items
 
     def to_state(self):
         return {"account": {"type": "account"}, "accessories": []}
@@ -228,10 +232,14 @@ def apple() -> Generator[Apple]:
     async def open_keychain(account):
         return keychain
 
+    async def read_emojis(client):
+        return {"T1": "🔑"}
+
     with (
         patch("custom_components.findmyapple.backends.fmip.FmipClient", FakeFmip),
         patch.object(fn, "async_open_machine", open_machine),
         patch.object(fn, "new_account", new_account),
+        patch.object(fn, "fetch_emojis", read_emojis),
         patch.object(fn.TagSession, "from_state", lambda provider, state: session),
         patch("findmy.icloud.AsyncFindMyClient.open", open_keychain),
     ):
