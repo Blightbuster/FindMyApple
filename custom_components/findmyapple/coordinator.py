@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import logging
-from datetime import timedelta
+from datetime import UTC, datetime, timedelta
 from typing import TYPE_CHECKING, Any
 
 from homeassistant.core import HomeAssistant
@@ -14,7 +14,6 @@ from homeassistant.util.location import distance
 
 from .backends.icloud import (
     AuthFailed,
-    ICloudBackend,
     NoDevices,
     NotActivated,
     Throttled,
@@ -27,14 +26,15 @@ from .const import (
     CONF_AWAY_MAX_INTERVAL,
     CONF_AWAY_MIN_INTERVAL,
     CONF_HOME_INTERVAL,
+    CONF_INCLUDE_FAMILY,
     CONF_TAG_INTERVAL,
-    CONF_TRACKED_DEVICES,
-    CONF_TRACKED_TAGS,
+    CONF_TRACKED_ITEMS,
     DEFAULT_AWAY_MAX_INTERVAL,
     DEFAULT_AWAY_MIN_INTERVAL,
     DEFAULT_HOME_INTERVAL,
     DEFAULT_TAG_INTERVAL,
     DOMAIN,
+    SOURCE_ICLOUD,
     STORAGE_VERSION,
 )
 from .models import TrackedItem
@@ -42,6 +42,7 @@ from .models import TrackedItem
 if TYPE_CHECKING:
     from . import FindMyAppleConfigEntry
     from .backends.findmy_network import TagSession
+    from .backends.fmip import FmipClient
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -54,7 +55,7 @@ class FindMyAppleCoordinator(DataUpdateCoordinator[dict[str, TrackedItem]]):
     """Shared behaviour: tracked-item filter, last-good-location merge, backoff, restore on restart."""
 
     config_entry: FindMyAppleConfigEntry
-    tracked_option: str = CONF_TRACKED_DEVICES
+    tracked_option: str = CONF_TRACKED_ITEMS
 
     def __init__(self, hass: HomeAssistant, entry: FindMyAppleConfigEntry, name: str, interval: timedelta) -> None:
         super().__init__(
@@ -105,42 +106,106 @@ class FindMyAppleCoordinator(DataUpdateCoordinator[dict[str, TrackedItem]]):
         raise HomeAssistantError("This item can't play a sound")
 
 
-class ICloudCoordinator(FindMyAppleCoordinator):
-    """Polls one Apple account's iCloud devices, with an interval that adapts to distance from zones."""
+class AccountCoordinator(FindMyAppleCoordinator):
+    """One Apple account, one sign-in: FMIP devices (adaptive polling) plus Find My network tags.
 
-    def __init__(self, hass: HomeAssistant, entry: FindMyAppleConfigEntry, backend: ICloudBackend) -> None:
+    Both come from the same emulated-Mac session. Devices are polled with an interval that adapts to
+    the distance from zones; tags (whose keys rotate every 15 minutes) at most once per tag interval.
+    """
+
+    tracked_option = CONF_TRACKED_ITEMS
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: FindMyAppleConfigEntry,
+        session: TagSession,
+        fmip: FmipClient,
+        state_store: Store[dict[str, Any]],
+    ) -> None:
         super().__init__(
-            hass, entry, "iCloud", timedelta(minutes=entry.options.get(CONF_HOME_INTERVAL, DEFAULT_HOME_INTERVAL))
+            hass, entry, "account", timedelta(minutes=entry.options.get(CONF_HOME_INTERVAL, DEFAULT_HOME_INTERVAL))
         )
-        self.backend = backend
-        self._logged_in = False
+        self.session = session
+        self.fmip = fmip
+        self._state_store = state_store
+        self._last_tags: datetime | None = None
 
     async def async_shutdown(self) -> None:
         await super().async_shutdown()
-        await self.hass.async_add_executor_job(self.backend.close)
+        await self.fmip.close()
+        await self.session.close()
+
+    @property
+    def _tag_interval(self) -> timedelta:
+        return timedelta(minutes=self.config_entry.options.get(CONF_TAG_INTERVAL, DEFAULT_TAG_INTERVAL))
+
+    def _tag_ids(self) -> list[str]:
+        """The account's tags. Its own Apple devices are in the keychain too, but FMIP covers them better."""
+        from .backends.findmy_network import describe
+
+        return [i for i, a in self.session.accessories.items() if not describe(a).is_apple_device]
 
     async def _async_update_data(self) -> dict[str, TrackedItem]:
-        try:
-            if not self._logged_in:
-                await self.hass.async_add_executor_job(self.backend.login)
-                self._logged_in = True
-            fresh = await self.hass.async_add_executor_job(self.backend.fetch, True)
-        except (AuthFailed, TwoFactorRequired) as err:
-            self._logged_in = False
-            raise ConfigEntryAuthFailed(str(err)) from err
-        except NotActivated as err:
-            self._set_backoff()
-            raise UpdateFailed(
-                "Find My is not available on iCloud.com for this account. With Advanced Data Protection, "
-                "turn on 'Access iCloud Data on the Web' on your iPhone."
-            ) from err
-        except (Throttled, NoDevices) as err:
-            self._set_backoff()
-            raise UpdateFailed(f"iCloud temporarily unavailable: {err}") from err
+        from .backends.findmy_network import MachineError
 
-        result = await self._merge_and_save(fresh)
-        self.update_interval = self._next_interval(result)
+        previous = self.data or {}
+        fresh: dict[str, TrackedItem] = {}
+        errors: list[Exception] = []
+
+        try:
+            devices = await self.fmip.fetch(locate=True)
+            if not self.config_entry.options.get(CONF_INCLUDE_FAMILY, True):
+                devices = {i: d for i, d in devices.items() if d.owner is None}
+            fresh.update(devices)
+        except (NotActivated, NoDevices) as err:
+            _LOGGER.debug("No FMIP devices: %s", err)
+        except (AuthFailed, TwoFactorRequired, Throttled, MachineError) as err:
+            errors.append(err)
+            fresh.update({i: it for i, it in previous.items() if it.source == SOURCE_ICLOUD})
+
+        now = datetime.now(UTC)
+        tags_due = self._last_tags is None or now - self._last_tags >= self._tag_interval
+        tag_ids = self._tag_ids()
+        tracked = self.config_entry.options.get(CONF_TRACKED_ITEMS)
+        wanted = tag_ids if tracked is None else [i for i in tag_ids if i in tracked]
+        if wanted and tags_due:
+            try:
+                fresh.update(await self.session.fetch(wanted))
+                self._last_tags = now
+            except (AuthFailed, TwoFactorRequired, Throttled, MachineError) as err:
+                errors.append(err)
+                fresh.update({i: it for i, it in previous.items() if it.source != SOURCE_ICLOUD})
+            # Key alignments (and possibly refreshed tokens) changed: persist them.
+            await self._save_state()
+        else:
+            fresh.update({i: it for i, it in previous.items() if it.source != SOURCE_ICLOUD})
+        # Tags not fetched this round still need to be listed, so the options can offer them.
+        tag_names = {i: self.session.accessories[i].name or i for i in tag_ids}
+
+        if errors and not fresh:
+            err = errors[0]
+            if isinstance(err, (AuthFailed, TwoFactorRequired)):
+                raise ConfigEntryAuthFailed(str(err)) from err
+            self._set_backoff()
+            raise UpdateFailed(f"Apple temporarily unavailable: {err}") from err
+        if errors:
+            auth = [e for e in errors if isinstance(e, (AuthFailed, TwoFactorRequired))]
+            if auth:
+                raise ConfigEntryAuthFailed(str(auth[0])) from auth[0]
+            _LOGGER.warning("Part of the update failed, keeping the last known data: %s", errors[0])
+        backoff = self._backoff
+        result = await self._merge_and_save(fresh)  # resets the backoff: a degraded update is not a success
+        self.all_devices.update(tag_names)
+        if errors:
+            self._backoff = backoff
+            self._set_backoff()
+        else:
+            self.update_interval = self._next_interval(result)
         return result
+
+    async def _save_state(self) -> None:
+        await self._state_store.async_save(self.session.to_state())
 
     def _next_interval(self, items: dict[str, TrackedItem]) -> timedelta:
         """Shortest interval any tracked device needs: home → home interval; away → scaled by distance."""
@@ -152,7 +217,7 @@ class ICloudCoordinator(FindMyAppleCoordinator):
         intervals = [
             interval_for_distance(nearest_zone_km(item, zones), home, away_min, away_max)
             for item in items.values()
-            if item.has_location
+            if item.has_location and item.source == SOURCE_ICLOUD
         ]
         return min(intervals, default=home)
 
@@ -168,62 +233,12 @@ class ICloudCoordinator(FindMyAppleCoordinator):
 
     async def async_play_sound(self, item_id: str) -> None:
         try:
-            await self.hass.async_add_executor_job(self.backend.play_sound, item_id)
+            await self.fmip.play_sound(item_id)
         except (AuthFailed, TwoFactorRequired) as err:
             self.config_entry.async_start_reauth(self.hass)
-            raise HomeAssistantError("Sign in to iCloud again to play a sound") from err
+            raise HomeAssistantError("Sign in to Apple again to play a sound") from err
         except (Throttled, NotActivated, NoDevices) as err:
             raise HomeAssistantError(f"Could not play sound: {err}") from err
-
-
-class TagCoordinator(FindMyAppleCoordinator):
-    """Polls an account's Find My network tags with one batched report fetch per interval."""
-
-    tracked_option = CONF_TRACKED_TAGS
-
-    def __init__(
-        self,
-        hass: HomeAssistant,
-        entry: FindMyAppleConfigEntry,
-        session: TagSession,
-        state_store: Store[dict[str, Any]],
-    ) -> None:
-        super().__init__(
-            hass, entry, "tags", timedelta(minutes=entry.options.get(CONF_TAG_INTERVAL, DEFAULT_TAG_INTERVAL))
-        )
-        self.session = session
-        self._state_store = state_store
-        self._interval = self.update_interval
-
-    async def async_shutdown(self) -> None:
-        await super().async_shutdown()
-        await self.session.close()
-
-    async def _async_update_data(self) -> dict[str, TrackedItem]:
-        from .backends.findmy_network import MachineError
-
-        tracked = self.config_entry.options.get(CONF_TRACKED_TAGS, list(self.session.accessories))
-        try:
-            fresh = await self.session.fetch(tracked)
-        except (AuthFailed, TwoFactorRequired) as err:
-            await self._save_state()  # keep whatever the library refreshed before failing
-            raise ConfigEntryAuthFailed(str(err)) from err
-        except MachineError as err:
-            self._set_backoff()
-            raise UpdateFailed(f"Apple refused the emulated Mac's headers: {err}") from err
-        except Throttled as err:
-            self._set_backoff()
-            raise UpdateFailed(f"Find My network temporarily unavailable: {err}") from err
-
-        # Key alignments (and possibly refreshed tokens) changed: persist them every poll.
-        await self._save_state()
-        result = await self._merge_and_save(fresh)
-        self.all_devices = {i: a.name or i for i, a in self.session.accessories.items()}
-        self.update_interval = self._interval
-        return result
-
-    async def _save_state(self) -> None:
-        await self._state_store.async_save(self.session.to_state())
 
 
 def nearest_zone_km(item: TrackedItem, zones: list[tuple[float, float, float]]) -> float:

@@ -7,23 +7,12 @@ from typing import Final
 
 DOMAIN: Final = "findmyapple"
 
-CONF_REGION: Final = "region"
-CONF_REMEMBER_PASSWORD: Final = "remember_password"
 CONF_INCLUDE_FAMILY: Final = "include_family"
-CONF_TRACKED_DEVICES: Final = "tracked_devices"
+CONF_TRACKED_ITEMS: Final = "tracked_items"  # ids of every tracked device and tag
 CONF_HOME_INTERVAL: Final = "home_interval"
 CONF_AWAY_MIN_INTERVAL: Final = "away_min_interval"
 CONF_AWAY_MAX_INTERVAL: Final = "away_max_interval"
-CONF_KIND: Final = "kind"
-CONF_TRACKED_TAGS: Final = "tracked_tags"
 CONF_TAG_INTERVAL: Final = "tag_interval"
-
-# A config entry is either an account's iCloud devices or its Find My network tags.
-KIND_ICLOUD: Final = "icloud"
-KIND_TAGS: Final = "tags"
-
-REGION_GLOBAL: Final = "global"
-REGION_CHINA: Final = "china"
 
 DEFAULT_HOME_INTERVAL: Final = 15  # minutes
 DEFAULT_AWAY_MIN_INTERVAL: Final = 5  # minutes; each locate wakes the phone's GPS

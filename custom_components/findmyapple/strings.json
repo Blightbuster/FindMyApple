@@ -1,144 +1,4 @@
 {
-  "config": {
-    "step": {
-      "user": {
-        "title": "FindMyApple",
-        "description": "What do you want to track?",
-        "menu_options": {
-          "icloud": "iPhone, iPad, Mac, Watch, AirPods (iCloud)",
-          "tags": "AirTags and other Find My tags (experimental)"
-        }
-      },
-      "two_factor": {
-        "title": "Two-factor authentication",
-        "description": "Enter the 6-digit code Apple sent ({delivery}).",
-        "data": {
-          "code": "Verification code"
-        }
-      },
-      "select_devices": {
-        "title": "Choose devices",
-        "description": "Select the devices to track. Each one gets a map tracker and sensors. Every update asks the selected devices for a fresh location, which uses a little battery.",
-        "data": {
-          "tracked_devices": "Devices",
-          "include_family": "Include Family Sharing devices"
-        }
-      },
-      "reauth_confirm": {
-        "title": "Sign in again",
-        "description": "Apple ended the session for {username}. Enter the password to sign in again.",
-        "data": {
-          "password": "Password",
-          "remember_password": "Remember password for automatic re-login"
-        }
-      },
-      "icloud": {
-        "title": "Sign in with your Apple Account",
-        "description": "Uses the same iCloud web service as icloud.com/find. If Advanced Data Protection is on, enable \"Access iCloud Data on the Web\" on your iPhone first.",
-        "data": {
-          "username": "Apple Account (email)",
-          "password": "Password",
-          "region": "iCloud region",
-          "remember_password": "Remember password for automatic re-login"
-        },
-        "data_description": {
-          "remember_password": "Lets Home Assistant sign in again on its own when Apple ends the session. The password is stored unencrypted in Home Assistant's .storage folder (and in backups). If off, you'll be asked to sign in again when the session expires (about every 2 months)."
-        }
-      },
-      "tags": {
-        "title": "Find My tags: sign in",
-        "description": "Experimental. To read tag locations, Home Assistant signs in as an emulated Mac: it downloads Apple's macOS ADI library from Apple (about 3.5 MB) and adds one \"MacBook Pro\" with a serial starting with 0FMAHA to your Apple Account's device list. Your password is stored unencrypted in Home Assistant's .storage folder, because Apple's session renewal needs it.",
-        "data": {
-          "username": "Apple Account (email)",
-          "password": "Password"
-        }
-      },
-      "tags_2fa_method": {
-        "title": "Two-factor authentication",
-        "description": "Where should Apple send the code?",
-        "data": {
-          "method": "Method"
-        }
-      },
-      "tags_code": {
-        "title": "Two-factor authentication",
-        "description": "Enter the 6-digit code ({delivery}).",
-        "data": {
-          "code": "Verification code"
-        }
-      },
-      "tags_unlock": {
-        "title": "Unlock your tag keys",
-        "description": "Your tags' keys are stored in your iCloud Keychain. Choose one of your Apple devices and enter its screen passcode (iPhone PIN or Mac login password, not your Apple Account password). It's used once and never stored. Apple locks keychain recovery after repeated wrong passcodes; attempts left here: {attempts_left}.",
-        "data": {
-          "record": "Device",
-          "passcode": "Device passcode"
-        }
-      },
-      "tags_select": {
-        "title": "Choose tags",
-        "description": "Select the tags to track. iPhones and other Apple devices are listed too, but the iCloud option tracks them better.",
-        "data": {
-          "tracked_tags": "Tags"
-        }
-      }
-    },
-    "error": {
-      "invalid_auth": "Apple refused the email or password.",
-      "invalid_code": "The code was not accepted. Check it and try again.",
-      "cannot_connect": "Could not reach iCloud, or Apple is temporarily refusing sign-ins. Wait a few minutes and try again.",
-      "unknown": "Unexpected error. See the log for details.",
-      "machine_failed": "Could not prepare the emulated Mac (downloading Apple's library or registering with Apple failed). See the log.",
-      "invalid_passcode": "The device passcode wasn't accepted."
-    },
-    "abort": {
-      "already_configured": "This Apple Account is already set up.",
-      "reauth_successful": "Signed in again.",
-      "security_key_unsupported": "This account uses a hardware security key for two-factor authentication, which isn't supported yet.",
-      "not_activated": "Find My isn't available on iCloud.com for this account. With Advanced Data Protection on, enable \"Access iCloud Data on the Web\" (Settings → your name → iCloud) and try again.",
-      "no_devices": "No Find My devices were found on this account.",
-      "cannot_connect": "Signed in, but the device list could not be loaded. Try again in a few minutes.",
-      "no_findmy_token": "Signed in, but Apple didn't issue the Find My token. Try again later.",
-      "no_escrow": "No Apple device with a recoverable iCloud Keychain was found on this account.",
-      "too_many_passcode_attempts": "Too many wrong passcodes. Stopped to protect your account from a keychain lockout.",
-      "no_tags": "No Find My tags were found on this account."
-    }
-  },
-  "options": {
-    "step": {
-      "icloud": {
-        "title": "FindMyApple options",
-        "data": {
-          "tracked_devices": "Devices",
-          "include_family": "Include Family Sharing devices",
-          "home_interval": "Update interval in a zone",
-          "away_min_interval": "Shortest update interval when away",
-          "away_max_interval": "Longest update interval when away"
-        },
-        "data_description": {
-          "away_min_interval": "Used right outside a zone. The interval grows with distance up to the longest one (reached 50 km from the nearest zone). Each update makes the devices fetch a GPS position."
-        }
-      },
-      "tags": {
-        "title": "Find My tags",
-        "data": {
-          "tracked_tags": "Tags",
-          "tag_interval": "Update interval"
-        }
-      }
-    },
-    "error": {
-      "min_above_max": "The shortest interval must not be longer than the longest one."
-    }
-  },
-  "selector": {
-    "region": {
-      "options": {
-        "global": "Global (icloud.com)",
-        "china": "China mainland (icloud.com.cn)"
-      }
-    }
-  },
   "entity": {
     "device_tracker": {
       "location": {
@@ -168,6 +28,94 @@
       "online": {
         "name": "Online"
       }
+    }
+  },
+  "config": {
+    "step": {
+      "user": {
+        "title": "Sign in to your Apple Account",
+        "description": "One sign-in covers your iPhones, iPads, Macs and family devices as well as AirTags and other Find My tags. Home Assistant signs in as an emulated Mac: it downloads Apple's macOS ADI library from Apple (about 3.5 MB) and adds one \"MacBook Pro\" with a serial starting with 0FMAHA to your Apple Account's device list. Your password is stored unencrypted in Home Assistant's .storage folder, because Apple's session renewal needs it.",
+        "data": {
+          "username": "Apple Account (email)",
+          "password": "Password"
+        }
+      },
+      "2fa_method": {
+        "title": "Two-factor authentication",
+        "description": "Where should Apple send the code?",
+        "data": {
+          "method": "Method"
+        }
+      },
+      "code": {
+        "title": "Two-factor authentication",
+        "description": "Enter the 6-digit code ({delivery}).",
+        "data": {
+          "code": "Verification code"
+        }
+      },
+      "unlock": {
+        "title": "Unlock your tag keys",
+        "description": "Your tags' keys are stored in your iCloud Keychain. Choose one of your Apple devices and enter its screen passcode (iPhone PIN or Mac login password, not your Apple Account password). It's used once and never stored. Apple locks keychain recovery after repeated wrong passcodes; attempts left here: {attempts_left}.",
+        "data": {
+          "record": "Device",
+          "passcode": "Device passcode"
+        }
+      },
+      "select": {
+        "title": "Choose what to track",
+        "description": "Select the devices and tags to track. Each one gets a map tracker and sensors. Every update asks the selected devices for a fresh location, which uses a little battery.",
+        "data": {
+          "tracked_items": "Devices and tags",
+          "include_family": "Include Family Sharing devices"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Sign in again",
+        "description": "Apple ended the session for {username}. Enter the password to sign in again.",
+        "data": {
+          "password": "Password"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Apple refused the email or password.",
+      "invalid_code": "The code was not accepted. Check it and try again.",
+      "cannot_connect": "Could not reach Apple, or Apple is temporarily refusing sign-ins. Wait a few minutes and try again.",
+      "unknown": "Unexpected error. See the log for details.",
+      "machine_failed": "Could not prepare the emulated Mac (downloading Apple's library or registering with Apple failed). See the log.",
+      "invalid_passcode": "The device passcode wasn't accepted."
+    },
+    "abort": {
+      "already_configured": "This Apple Account is already set up.",
+      "reauth_successful": "Signed in again.",
+      "security_key_unsupported": "This account uses a hardware security key for two-factor authentication, which isn't supported yet.",
+      "no_devices": "No Find My devices or tags were found on this account.",
+      "cannot_connect": "Signed in, but the device list or the iCloud Keychain could not be loaded. Try again in a few minutes.",
+      "no_findmy_token": "Signed in, but Apple didn't issue the Find My tokens. Try again later.",
+      "too_many_passcode_attempts": "Too many wrong passcodes. Stopped to protect your account from a keychain lockout."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "FindMyApple options",
+        "data": {
+          "tracked_items": "Devices and tags",
+          "include_family": "Include Family Sharing devices",
+          "home_interval": "Update interval in a zone",
+          "away_min_interval": "Shortest update interval when away",
+          "away_max_interval": "Longest update interval when away",
+          "tag_interval": "Tag update interval"
+        },
+        "data_description": {
+          "away_min_interval": "Used right outside a zone. The interval grows with distance up to the longest one (reached 50 km from the nearest zone). Each update makes the devices fetch a GPS position.",
+          "tag_interval": "Tags are located at most this often, however short the device intervals are."
+        }
+      }
+    },
+    "error": {
+      "min_above_max": "The shortest interval must not be longer than the longest one."
     }
   }
 }

@@ -1,144 +1,4 @@
 {
-  "config": {
-    "step": {
-      "user": {
-        "title": "FindMyApple",
-        "description": "Was möchtest du verfolgen?",
-        "menu_options": {
-          "icloud": "iPhone, iPad, Mac, Watch, AirPods (iCloud)",
-          "tags": "AirTags und andere „Wo ist?“-Tags (experimentell)"
-        }
-      },
-      "two_factor": {
-        "title": "Zwei-Faktor-Authentifizierung",
-        "description": "Gib den 6-stelligen Code ein, den Apple gesendet hat ({delivery}).",
-        "data": {
-          "code": "Bestätigungscode"
-        }
-      },
-      "select_devices": {
-        "title": "Geräte auswählen",
-        "description": "Wähle die Geräte aus, die verfolgt werden sollen. Jedes bekommt einen Kartentracker und Sensoren. Jede Aktualisierung fordert von den ausgewählten Geräten einen neuen Standort an, was etwas Akku kostet.",
-        "data": {
-          "tracked_devices": "Geräte",
-          "include_family": "Geräte der Familienfreigabe einbeziehen"
-        }
-      },
-      "reauth_confirm": {
-        "title": "Erneut anmelden",
-        "description": "Apple hat die Sitzung für {username} beendet. Gib das Passwort ein, um dich erneut anzumelden.",
-        "data": {
-          "password": "Passwort",
-          "remember_password": "Passwort für automatische Neuanmeldung speichern"
-        }
-      },
-      "icloud": {
-        "title": "Mit Apple Account anmelden",
-        "description": "Nutzt denselben iCloud-Webdienst wie icloud.com/find. Ist der erweiterte Datenschutz aktiv, schalte vorher am iPhone „Auf iCloud-Daten im Web zugreifen“ ein.",
-        "data": {
-          "username": "Apple Account (E-Mail)",
-          "password": "Passwort",
-          "region": "iCloud-Region",
-          "remember_password": "Passwort für automatische Neuanmeldung speichern"
-        },
-        "data_description": {
-          "remember_password": "Damit kann sich Home Assistant selbst neu anmelden, wenn Apple die Sitzung beendet. Das Passwort wird unverschlüsselt im .storage-Ordner von Home Assistant gespeichert (und in Backups). Ist die Option aus, wirst du nach Ablauf der Sitzung (etwa alle 2 Monate) erneut zur Anmeldung aufgefordert."
-        }
-      },
-      "tags": {
-        "title": "„Wo ist?“-Tags: Anmelden",
-        "description": "Experimentell. Um Tag-Standorte zu lesen, meldet sich Home Assistant als emulierter Mac an: Es lädt Apples macOS-ADI-Bibliothek von Apple herunter (etwa 3,5 MB) und fügt deiner Geräteliste im Apple Account ein „MacBook Pro“ mit einer Seriennummer hinzu, die mit 0FMAHA beginnt. Dein Passwort wird unverschlüsselt im .storage-Ordner von Home Assistant gespeichert, weil Apples Sitzungsverlängerung es braucht.",
-        "data": {
-          "username": "Apple Account (E-Mail)",
-          "password": "Passwort"
-        }
-      },
-      "tags_2fa_method": {
-        "title": "Zwei-Faktor-Authentifizierung",
-        "description": "Wohin soll Apple den Code senden?",
-        "data": {
-          "method": "Methode"
-        }
-      },
-      "tags_code": {
-        "title": "Zwei-Faktor-Authentifizierung",
-        "description": "Gib den 6-stelligen Code ein ({delivery}).",
-        "data": {
-          "code": "Bestätigungscode"
-        }
-      },
-      "tags_unlock": {
-        "title": "Tag-Schlüssel entsperren",
-        "description": "Die Schlüssel deiner Tags liegen in deinem iCloud-Schlüsselbund. Wähle eines deiner Apple-Geräte und gib seinen Gerätecode ein (iPhone-Code oder Mac-Anmeldepasswort, nicht das Apple-Account-Passwort). Er wird einmal verwendet und nie gespeichert. Apple sperrt die Schlüsselbund-Wiederherstellung nach mehreren falschen Codes; verbleibende Versuche: {attempts_left}.",
-        "data": {
-          "record": "Gerät",
-          "passcode": "Gerätecode"
-        }
-      },
-      "tags_select": {
-        "title": "Tags auswählen",
-        "description": "Wähle die Tags aus, die verfolgt werden sollen. iPhones und andere Apple-Geräte stehen auch in der Liste, die iCloud-Option verfolgt sie aber besser.",
-        "data": {
-          "tracked_tags": "Tags"
-        }
-      }
-    },
-    "error": {
-      "invalid_auth": "Apple hat E-Mail oder Passwort abgelehnt.",
-      "invalid_code": "Der Code wurde nicht akzeptiert. Prüfe ihn und versuche es erneut.",
-      "cannot_connect": "iCloud ist nicht erreichbar, oder Apple lehnt Anmeldungen vorübergehend ab. Warte ein paar Minuten und versuche es erneut.",
-      "unknown": "Unerwarteter Fehler. Details stehen im Log.",
-      "machine_failed": "Der emulierte Mac konnte nicht vorbereitet werden (Download von Apples Bibliothek oder Registrierung bei Apple fehlgeschlagen). Details stehen im Log.",
-      "invalid_passcode": "Der Gerätecode wurde nicht akzeptiert."
-    },
-    "abort": {
-      "already_configured": "Dieser Apple Account ist bereits eingerichtet.",
-      "reauth_successful": "Erneut angemeldet.",
-      "security_key_unsupported": "Dieser Account nutzt einen Hardware-Sicherheitsschlüssel für die Zwei-Faktor-Authentifizierung. Das wird noch nicht unterstützt.",
-      "not_activated": "„Wo ist?“ ist für diesen Account auf iCloud.com nicht verfügbar. Ist der erweiterte Datenschutz aktiv, schalte „Auf iCloud-Daten im Web zugreifen“ ein (Einstellungen → dein Name → iCloud) und versuche es erneut.",
-      "no_devices": "In diesem Account wurden keine „Wo ist?“-Geräte gefunden.",
-      "cannot_connect": "Angemeldet, aber die Geräteliste konnte nicht geladen werden. Versuche es in ein paar Minuten erneut.",
-      "no_findmy_token": "Angemeldet, aber Apple hat das „Wo ist?“-Token nicht ausgestellt. Versuche es später erneut.",
-      "no_escrow": "In diesem Account wurde kein Apple-Gerät mit wiederherstellbarem iCloud-Schlüsselbund gefunden.",
-      "too_many_passcode_attempts": "Zu viele falsche Gerätecodes. Abgebrochen, um eine Sperre des Schlüsselbunds zu vermeiden.",
-      "no_tags": "In diesem Account wurden keine „Wo ist?“-Tags gefunden."
-    }
-  },
-  "options": {
-    "step": {
-      "icloud": {
-        "title": "FindMyApple-Optionen",
-        "data": {
-          "tracked_devices": "Geräte",
-          "include_family": "Geräte der Familienfreigabe einbeziehen",
-          "home_interval": "Aktualisierungsintervall in einer Zone",
-          "away_min_interval": "Kürzestes Intervall unterwegs",
-          "away_max_interval": "Längstes Intervall unterwegs"
-        },
-        "data_description": {
-          "away_min_interval": "Gilt direkt außerhalb einer Zone. Mit der Entfernung wächst das Intervall bis zum längsten (erreicht 50 km von der nächsten Zone). Jede Aktualisierung lässt die Geräte eine GPS-Position bestimmen."
-        }
-      },
-      "tags": {
-        "title": "„Wo ist?“-Tags",
-        "data": {
-          "tracked_tags": "Tags",
-          "tag_interval": "Aktualisierungsintervall"
-        }
-      }
-    },
-    "error": {
-      "min_above_max": "Das kürzeste Intervall darf nicht länger als das längste sein."
-    }
-  },
-  "selector": {
-    "region": {
-      "options": {
-        "global": "Weltweit (icloud.com)",
-        "china": "China-Festland (icloud.com.cn)"
-      }
-    }
-  },
   "entity": {
     "device_tracker": {
       "location": {
@@ -168,6 +28,94 @@
       "online": {
         "name": "Online"
       }
+    }
+  },
+  "config": {
+    "step": {
+      "user": {
+        "title": "Mit deinem Apple Account anmelden",
+        "description": "Eine Anmeldung deckt iPhones, iPads, Macs und Familiengeräte sowie AirTags und andere Find-My-Tags ab. Home Assistant meldet sich als emulierter Mac an: Es lädt Apples macOS-ADI-Bibliothek von Apple (ca. 3,5 MB) herunter und fügt deiner Geräteliste im Apple Account ein „MacBook Pro“ mit einer Seriennummer, die mit 0FMAHA beginnt, hinzu. Dein Passwort wird unverschlüsselt im .storage-Ordner von Home Assistant gespeichert, weil Apples Sitzungserneuerung es braucht.",
+        "data": {
+          "username": "Apple Account (E-Mail)",
+          "password": "Passwort"
+        }
+      },
+      "2fa_method": {
+        "title": "Zwei-Faktor-Authentifizierung",
+        "description": "Wohin soll Apple den Code senden?",
+        "data": {
+          "method": "Methode"
+        }
+      },
+      "code": {
+        "title": "Zwei-Faktor-Authentifizierung",
+        "description": "Gib den 6-stelligen Code ein ({delivery}).",
+        "data": {
+          "code": "Bestätigungscode"
+        }
+      },
+      "unlock": {
+        "title": "Tag-Schlüssel entsperren",
+        "description": "Die Schlüssel deiner Tags liegen in deinem iCloud-Schlüsselbund. Wähle eines deiner Apple-Geräte und gib seinen Gerätecode ein (iPhone-Code oder Mac-Anmeldepasswort, nicht das Apple-Account-Passwort). Er wird einmal verwendet und nie gespeichert. Apple sperrt die Schlüsselbund-Wiederherstellung nach mehreren falschen Codes; verbleibende Versuche: {attempts_left}.",
+        "data": {
+          "record": "Gerät",
+          "passcode": "Gerätecode"
+        }
+      },
+      "select": {
+        "title": "Auswählen, was verfolgt wird",
+        "description": "Wähle die Geräte und Tags, die verfolgt werden sollen. Jedes bekommt einen Karten-Tracker und Sensoren. Jede Aktualisierung fordert von den gewählten Geräten einen frischen Standort an, was etwas Akku kostet.",
+        "data": {
+          "tracked_items": "Geräte und Tags",
+          "include_family": "Geräte der Familienfreigabe einbeziehen"
+        }
+      },
+      "reauth_confirm": {
+        "title": "Erneut anmelden",
+        "description": "Apple hat die Sitzung für {username} beendet. Gib das Passwort ein, um dich erneut anzumelden.",
+        "data": {
+          "password": "Passwort"
+        }
+      }
+    },
+    "error": {
+      "invalid_auth": "Apple hat die E-Mail-Adresse oder das Passwort abgelehnt.",
+      "invalid_code": "Der Code wurde nicht akzeptiert. Prüfe ihn und versuche es erneut.",
+      "cannot_connect": "Apple war nicht erreichbar oder lehnt Anmeldungen vorübergehend ab. Warte ein paar Minuten und versuche es erneut.",
+      "unknown": "Unerwarteter Fehler. Details stehen im Log.",
+      "machine_failed": "Der emulierte Mac konnte nicht vorbereitet werden (Download von Apples Bibliothek oder Registrierung bei Apple fehlgeschlagen). Siehe Log.",
+      "invalid_passcode": "Der Gerätecode wurde nicht akzeptiert."
+    },
+    "abort": {
+      "already_configured": "Dieser Apple Account ist bereits eingerichtet.",
+      "reauth_successful": "Erneut angemeldet.",
+      "security_key_unsupported": "Dieses Konto nutzt einen Hardware-Sicherheitsschlüssel für die Zwei-Faktor-Authentifizierung, der noch nicht unterstützt wird.",
+      "no_devices": "Auf diesem Konto wurden keine Find-My-Geräte oder -Tags gefunden.",
+      "cannot_connect": "Angemeldet, aber die Geräteliste oder der iCloud-Schlüsselbund konnte nicht geladen werden. Versuche es in ein paar Minuten erneut.",
+      "no_findmy_token": "Angemeldet, aber Apple hat die Find-My-Tokens nicht ausgestellt. Versuche es später erneut.",
+      "too_many_passcode_attempts": "Zu viele falsche Gerätecodes. Abgebrochen, um dein Konto vor einer Schlüsselbund-Sperre zu schützen."
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "title": "FindMyApple-Optionen",
+        "data": {
+          "tracked_items": "Geräte und Tags",
+          "include_family": "Geräte der Familienfreigabe einbeziehen",
+          "home_interval": "Aktualisierungsintervall in einer Zone",
+          "away_min_interval": "Kürzestes Intervall unterwegs",
+          "away_max_interval": "Längstes Intervall unterwegs",
+          "tag_interval": "Aktualisierungsintervall der Tags"
+        },
+        "data_description": {
+          "away_min_interval": "Gilt direkt außerhalb einer Zone. Das Intervall wächst mit der Entfernung bis zum längsten Wert (erreicht 50 km von der nächsten Zone). Bei jeder Aktualisierung holen die Geräte eine GPS-Position.",
+          "tag_interval": "Tags werden höchstens so oft geortet, egal wie kurz die Geräteintervalle sind."
+        }
+      }
+    },
+    "error": {
+      "min_above_max": "Das kürzeste Intervall darf nicht länger als das längste sein."
     }
   }
 }

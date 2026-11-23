@@ -418,3 +418,18 @@ redact it in diagnostics.
   - Normalisation of both payload formats into `TrackedLocation`.
 - Recorded (redacted) iCloud `refreshClient` responses as fixtures.
 - Manual end-to-end on a dev HA instance with a real account: phone, iPad, one AirTag.
+
+## Update 2026-11-23: one login for devices and tags
+
+The two backends (pyicloud web login for devices, emulated-Mac login for tags) are merged. The
+emulated-Mac session's `mmeFMIPAppToken`, sent with the Mac's anisette headers, works against
+`fmipmobile.icloud.com` (`spike/fmip_poll.py`: HTTP 200, devices with locations and battery).
+`mmeFMIPToken` gets a 401 on `initClient`, so the app token is the one used. pyicloud is gone.
+
+- `backends/fmip.py`: the FMIP client (Basic auth `dsid:token`, partition-host redirect, renewal on
+  401 via the stored password). Apple's root CA is bundled as `apple_root_ca.pem`, since the host
+  isn't signed by a public CA.
+- One config entry per account (`AccountCoordinator`): devices adapt to zones, tags at most every
+  15 min, a half that fails keeps its last positions.
+- The config flow is one path: sign in, 2FA, keychain passcode, one list of devices and tags.
+- Dropped: the China region (untested on this route) and the optional password storage.
