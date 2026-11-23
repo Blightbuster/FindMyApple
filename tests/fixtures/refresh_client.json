@@ -1,0 +1,58 @@
+{
+  "content": [
+    {
+      "id": "iphone-1",
+      "name": "Alex's iPhone",
+      "deviceDisplayName": "iPhone 16 Pro",
+      "deviceModel": "iPhone17_1",
+      "deviceClass": "iPhone",
+      "deviceStatus": "200",
+      "batteryLevel": 0.87,
+      "batteryStatus": "Charging",
+      "lowPowerMode": false,
+      "features": {"SND": true, "MSG": true},
+      "location": {
+        "latitude": 52.52,
+        "longitude": 13.405,
+        "horizontalAccuracy": 12.5,
+        "timeStamp": 1795000000000,
+        "positionType": "GPS",
+        "isOld": false,
+        "isInaccurate": false,
+        "locationFinished": true
+      }
+    },
+    {
+      "id": "ipad-1",
+      "name": "Living room iPad",
+      "deviceDisplayName": "iPad Air",
+      "deviceModel": "iPad13_16",
+      "deviceClass": "iPad",
+      "deviceStatus": "201",
+      "batteryLevel": 0.0,
+      "batteryStatus": "Unknown",
+      "features": {"SND": true},
+      "location": null
+    },
+    {
+      "id": "airpods-1",
+      "name": "AirPods Pro",
+      "deviceDisplayName": "AirPods Pro",
+      "deviceModel": "AirPodsPro",
+      "deviceClass": "Accessory",
+      "deviceStatus": "203",
+      "batteryLevel": 0.4,
+      "batteryStatus": "NotCharging",
+      "features": {"SND": false},
+      "location": {
+        "latitude": 48.137,
+        "longitude": 11.575,
+        "horizontalAccuracy": 65.0,
+        "timeStamp": 1794990000000,
+        "positionType": "Wifi",
+        "isOld": true,
+        "isInaccurate": false
+      }
+    }
+  ]
+}

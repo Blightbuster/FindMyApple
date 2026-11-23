@@ -1,0 +1,12 @@
+__pycache__/
+*.pyc
+.venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+# Spike state: sessions, anisette machines, tag private keys. Never commit.
+spike/state/
+spike/.venv/
+# Third-party checkouts used for research; not part of this repo.
+third_party/

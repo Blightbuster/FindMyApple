@@ -1,0 +1,16 @@
+[project]
+name = "findmyapple-spike"
+version = "0.0.0"
+description = "Spike: can we download Find My tag keys from iCloud and locate them without Mac emulation?"
+requires-python = ">=3.12,<3.15"
+dependencies = ["findmy", "machoadi"]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+# parawanderer's fork: upstream FindMy.py 0.10.2 + iCloud keychain / CloudKit BeaconStore modules.
+findmy = { path = "../third_party/findmy-parawanderer", editable = true }
+# GPL-2.0 Mac CoreADI engine, pinned: parawanderer/os-findmy-e@595d398 tools/machoadi
+# ("Mac OS X" spelling). Run only as a subprocess by custom_components/findmyapple/macanisette.py.
+machoadi = { path = "../third_party/machoadi-parawanderer" }

@@ -1,0 +1,3 @@
+# Session tokens, anisette provisioning and tag private keys live here. Never commit.
+state/
+.venv/

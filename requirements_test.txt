@@ -1,0 +1,4 @@
+pytest-homeassistant-custom-component
+pyicloud>=2.0
+ruff
+FindMy @ git+https://github.com/parawanderer/FindMy.py@87ece127eda82926322a7c062f430f465152c782
