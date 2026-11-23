@@ -181,7 +181,8 @@ class FindMyAppleConfigFlow(ConfigFlow, domain=DOMAIN):
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
-                ok = await self.hass.async_add_executor_job(self._backend.validate_2fa_code, _digits(user_input[CONF_CODE]))
+                code = _digits(user_input[CONF_CODE])
+                ok = await self.hass.async_add_executor_job(self._backend.validate_2fa_code, code)
             except Exception:
                 _LOGGER.exception("Unexpected error validating the two-factor code")
                 ok = False

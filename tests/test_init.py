@@ -83,7 +83,7 @@ async def test_auth_failure_starts_reauth(hass: HomeAssistant, fake_backend) -> 
 async def test_throttling_backs_off_and_keeps_last_location(hass: HomeAssistant, fake_backend, freezer) -> None:
     entry = _entry()
     await _setup(hass, entry)
-    coordinator = entry.runtime_data.icloud
+    coordinator = entry.runtime_data.coordinator
 
     fake_backend.fetch_error = Throttled("503")
     freezer.tick(timedelta(hours=1))

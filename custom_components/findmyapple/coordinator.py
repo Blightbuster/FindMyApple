@@ -57,7 +57,9 @@ class FindMyAppleCoordinator(DataUpdateCoordinator[dict[str, TrackedItem]]):
     tracked_option: str = CONF_TRACKED_DEVICES
 
     def __init__(self, hass: HomeAssistant, entry: FindMyAppleConfigEntry, name: str, interval: timedelta) -> None:
-        super().__init__(hass, _LOGGER, config_entry=entry, name=f"{DOMAIN} {name} {entry.title}", update_interval=interval)
+        super().__init__(
+            hass, _LOGGER, config_entry=entry, name=f"{DOMAIN} {name} {entry.title}", update_interval=interval
+        )
         self._store = locations_store(hass, entry.entry_id)
         self._backoff: timedelta | None = None
         self.all_devices: dict[str, str] = {}  # every item on the account (id -> name), tracked or not

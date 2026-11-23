@@ -22,6 +22,8 @@ from custom_components.findmyapple.backends import findmy_network as fn
 from custom_components.findmyapple.backends.icloud import AuthFailed
 from custom_components.findmyapple.const import CONF_KIND, CONF_TAG_INTERVAL, CONF_TRACKED_TAGS, DOMAIN, KIND_TAGS
 
+from .testdata import TAG_ACCURACY, TAG_LATITUDE, TAG_LONGITUDE, TAG_MODEL, TAG_NAME, TAG_SLUG
+
 NOW = datetime(2026, 11, 23, 20, 0, tzinfo=UTC)
 
 
@@ -77,12 +79,12 @@ class FakeAccount:
 
 async def test_fresh_tag_is_located_with_one_batched_fetch() -> None:
     tag = make_accessory("Keys", "A", aligned=NOW - timedelta(hours=2), index=5000)
-    account = FakeAccount({tag: FakeReport(48.1, 11.5, 70, NOW - timedelta(minutes=16))})
+    account = FakeAccount({tag: FakeReport(TAG_LATITUDE, TAG_LONGITUDE, TAG_ACCURACY, NOW - timedelta(minutes=16))})
     session = fn.TagSession(account, {"A": tag})
     items = await session.fetch(["A"], now=NOW)
     assert account.calls == [[tag]]
     item = items["A"]
-    assert (item.latitude, item.longitude, item.accuracy) == (48.1, 11.5, 70)
+    assert (item.latitude, item.longitude, item.accuracy) == (TAG_LATITUDE, TAG_LONGITUDE, TAG_ACCURACY)
     assert item.source == "findmy_network"
 
 
@@ -96,7 +98,7 @@ async def test_stale_tag_is_probed_with_daily_keys_then_located() -> None:
     hit_secondary = (10000 + 120 * 96) // 96 + 1
     hit_key = tag._secondary_gen[hit_secondary]
     seen = NOW - timedelta(hours=3)
-    session.account.reports = {hit_key: FakeReport(48.2, 11.6, 90, seen)}
+    session.account.reports = {hit_key: FakeReport(TAG_LATITUDE, TAG_LONGITUDE, TAG_ACCURACY, seen)}
 
     items = await session.fetch(["B"], now=NOW)
     probe_keys = session.account.calls[0]
@@ -130,7 +132,8 @@ async def test_untracked_tags_are_not_fetched() -> None:
     ("error", "expected"),
     [
         (UnauthorizedError("401"), AuthFailed),
-        (GrandSlamRefusedError("Email verification failed (ec=-80009): MID is invalid."), fn.MachineError),
+        (GrandSlamRefusedError("init", -80009, "MID is invalid."), fn.MachineError),
+        (GrandSlamRefusedError("complete", -22406, "Enter the correct password"), AuthFailed),
         (OSError("network down"), fn.Throttled),
     ],
 )
@@ -180,7 +183,7 @@ class FakeRecord:
 
 
 class FakeOptions:
-    recoverable = [FakeRecord("Old iPhone"), FakeRecord("iPhone 16 Pro")]
+    recoverable = (FakeRecord("Old iPhone"), FakeRecord("iPhone 16 Pro"))
 
 
 class FakeClient:
@@ -200,7 +203,7 @@ class FakeClient:
 
     async def accessories(self) -> list[FindMyAccessory]:
         return [
-            make_accessory("Schlüssel", "T1", aligned=NOW, index=208),
+            make_accessory(TAG_NAME, "T1", aligned=NOW, index=208, model=TAG_MODEL),
             make_accessory("iPhone", "P1", aligned=NOW, index=1, model="iPhone17,1"),
         ]
 
@@ -243,6 +246,8 @@ def tag_flow_mocks():
         patch.object(fn, "async_open_machine", open_machine),
         patch.object(fn, "new_account", new_account),
         patch("findmy.icloud.AsyncFindMyClient.open", open_client),
+        # The flow is under test, not the entry it creates: don't set that up for real.
+        patch("custom_components.findmyapple.async_setup_entry", return_value=True),
     ):
         yield client, accounts
 
@@ -258,7 +263,7 @@ async def _start_tags(hass: HomeAssistant, password: str = "pw"):
 
 
 async def test_tags_flow_end_to_end(hass: HomeAssistant, tag_flow_mocks) -> None:
-    client, accounts = tag_flow_mocks
+    _client, accounts = tag_flow_mocks
     result = await _start_tags(hass)
     assert result["step_id"] == "tags_code"  # one 2FA method: requested straight away
     assert accounts[-1].method.requested
@@ -309,7 +314,7 @@ async def test_tags_flow_stops_after_three_wrong_passcodes(hass: HomeAssistant, 
 
 class FakeSession:
     def __init__(self) -> None:
-        self.accessories = {"T1": make_accessory("Schlüssel", "T1", aligned=NOW, index=208)}
+        self.accessories = {"T1": make_accessory(TAG_NAME, "T1", aligned=NOW, index=208, model=TAG_MODEL)}
         self.fetches = 0
         self.error: Exception | None = None
 
@@ -317,7 +322,7 @@ class FakeSession:
         self.fetches += 1
         if self.error is not None:
             raise self.error
-        report = FakeReport(52.52, 13.405, 72, datetime.now(UTC) - timedelta(minutes=16))
+        report = FakeReport(TAG_LATITUDE, TAG_LONGITUDE, TAG_ACCURACY, datetime.now(UTC) - timedelta(minutes=16))
         return {i: fn.report_to_item(self.accessories[i], report) for i in tracked if i in self.accessories}
 
     def to_state(self):
@@ -355,15 +360,15 @@ async def test_tag_entry_creates_tracker_without_battery_or_sound(hass: HomeAssi
     session = FakeSession()
     entry = await _setup_tags_entry(hass, session)
     assert entry.state is ConfigEntryState.LOADED
-    tracker = hass.states.get("device_tracker.schlussel")
+    tracker = hass.states.get(f"device_tracker.{TAG_SLUG}")
     assert tracker is not None
-    assert tracker.attributes["latitude"] == 52.52
+    assert tracker.attributes["latitude"] == TAG_LATITUDE
     assert tracker.attributes["source"] == "findmy_network"
-    assert hass.states.get("sensor.schlussel_last_seen") is not None
-    assert hass.states.get("sensor.schlussel_battery") is None
-    assert hass.states.get("binary_sensor.schlussel_charging") is None
-    assert hass.states.get("button.schlussel_play_sound") is None
-    assert hass.states.get("button.schlussel_refresh_location") is not None
+    assert hass.states.get(f"sensor.{TAG_SLUG}_last_seen") is not None
+    assert hass.states.get(f"sensor.{TAG_SLUG}_battery") is None
+    assert hass.states.get(f"binary_sensor.{TAG_SLUG}_charging") is None
+    assert hass.states.get(f"button.{TAG_SLUG}_play_sound") is None
+    assert hass.states.get(f"button.{TAG_SLUG}_refresh_location") is not None
 
 
 async def test_tag_auth_failure_starts_reauth(hass: HomeAssistant) -> None:

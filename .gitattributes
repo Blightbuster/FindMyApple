@@ -1,0 +1,4 @@
+# Keep the repository LF everywhere, whatever the editor writes on Windows.
+* text=auto eol=lf
+*.png binary
+*.lock text eol=lf

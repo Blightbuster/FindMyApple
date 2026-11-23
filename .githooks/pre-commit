@@ -1,0 +1,4 @@
+#!/bin/sh
+# Refuses commits that contain personal data or generated artifacts. Enable once per clone:
+#   git config core.hooksPath .githooks
+exec python .githooks/check_staged.py

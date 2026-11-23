@@ -1,12 +1,39 @@
-__pycache__/
-*.pyc
-.venv/
+# ---- Personal data: never commit -------------------------------------------------------------
+# Real test data (see .env.example).
+.env
+.env.*
+!.env.example
+# Spike state: Apple sessions, emulated-Mac machines, tag private keys, results with locations.
+spike/state/
+state/
+# Anything that looks like a saved session, tag key or machine store, wherever it lands.
+account.json
+accessories/
+emulated-mac/
+*.plist
+
+# ---- Artifacts: generated, never commit --------------------------------------------------------
+# Apple's CoreADI library (downloaded at runtime; Apple's, not ours to distribute).
+CoreADI*
+*.partial
+# Logs and test output.
+*.log
+logs/
 .pytest_cache/
+.coverage
+.coverage.*
+coverage.xml
+htmlcov/
+junit*.xml
+# Python and tool caches, builds.
+__pycache__/
+*.py[cod]
+.venv/
+spike/.venv/
 .ruff_cache/
 .mypy_cache/
-.coverage
-# Spike state: sessions, anisette machines, tag private keys. Never commit.
-spike/state/
-spike/.venv/
+build/
+dist/
+*.egg-info/
 # Third-party checkouts used for research; not part of this repo.
 third_party/

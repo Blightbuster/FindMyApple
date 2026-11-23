@@ -106,8 +106,12 @@ def two_factor_label(method: AsyncSecondFactorMethod) -> str:
 def classify(err: BaseException) -> Exception:
     """Map FindMy.py errors to the integration's: sign in again / machine trouble / transient."""
     text = str(err)
-    if isinstance(err, GrandSlamRefusedError) and ("-80009" in text or "-22421" in text or "434" in text):
-        return MachineError(text)  # Apple refused the emulated Mac's headers, not the password
+    if isinstance(err, GrandSlamRefusedError) and (
+        err.before_password or str(err.ec) in ("-80009", "-22421")
+    ):
+        # Refused at SRP init (before the password is used) or "MID is invalid" / resync wanted:
+        # Apple declined the emulated Mac's headers, so retyping the password wouldn't help.
+        return MachineError(text)
     if isinstance(err, (InvalidCredentialsError, UnauthorizedError)):
         return AuthFailed(text)
     if isinstance(err, EmulatedMacError):
@@ -155,7 +159,8 @@ class TagSession:
         stale = [a for a in wanted if self.is_stale(a, now)]
         fresh = [a for a in wanted if a not in stale]
 
-        due = [a for a in stale if now - self._last_probe.get(tag_id(a), datetime.min.replace(tzinfo=UTC)) >= PROBE_INTERVAL]
+        never = datetime.min.replace(tzinfo=UTC)
+        due = [a for a in stale if now - self._last_probe.get(tag_id(a), never) >= PROBE_INTERVAL]
         try:
             if due:
                 await self._probe(due, now)
