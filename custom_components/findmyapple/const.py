@@ -9,6 +9,7 @@ DOMAIN: Final = "findmyapple"
 
 CONF_INCLUDE_FAMILY: Final = "include_family"
 CONF_TRACKED_ITEMS: Final = "tracked_items"  # ids of every tracked device and tag
+CONF_ICONS: Final = "icons"  # item id -> the emoji the map shows instead of the default
 CONF_HOME_INTERVAL: Final = "home_interval"
 CONF_AWAY_MIN_INTERVAL: Final = "away_min_interval"
 CONF_AWAY_MAX_INTERVAL: Final = "away_max_interval"

@@ -30,6 +30,7 @@ from .const import (
     CONF_AWAY_MAX_INTERVAL,
     CONF_AWAY_MIN_INTERVAL,
     CONF_HOME_INTERVAL,
+    CONF_ICONS,
     CONF_INCLUDE_FAMILY,
     CONF_TAG_INTERVAL,
     CONF_TRACKED_ITEMS,
@@ -52,6 +53,7 @@ CONF_CODE = "code"
 CONF_METHOD = "method"
 CONF_RECORD = "record"
 CONF_PASSCODE = "passcode"
+MAX_ICON_LENGTH = 16  # an emoji can be several code points (flags, skin tones, ZWJ sequences)
 MAX_PASSCODE_ATTEMPTS = 3  # Apple locks escrow recovery after repeated failures
 
 PASSWORD_SELECTOR = TextSelector(TextSelectorConfig(type=TextSelectorType.PASSWORD, autocomplete="current-password"))
@@ -378,7 +380,11 @@ class FindMyAppleConfigFlow(ConfigFlow, domain=DOMAIN):
 
 
 class FindMyAppleOptionsFlow(OptionsFlow):
-    """Tracked devices and tags, family, and the polling intervals."""
+    """Tracked devices and tags, family, the polling intervals, and the emoji shown on the map."""
+
+    def __init__(self) -> None:
+        self._pending: dict[str, Any] = {}
+        self._names: dict[str, str] = {}
 
     async def async_step_init(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
         errors: dict[str, str] = {}
@@ -386,7 +392,8 @@ class FindMyAppleOptionsFlow(OptionsFlow):
             if user_input[CONF_AWAY_MIN_INTERVAL] > user_input[CONF_AWAY_MAX_INTERVAL]:
                 errors[CONF_AWAY_MIN_INTERVAL] = "min_above_max"
             else:
-                return self.async_create_entry(data=user_input)
+                self._pending = user_input
+                return await self.async_step_icons()
 
         entry: FindMyAppleConfigEntry = self.config_entry
         options = entry.options
@@ -394,6 +401,7 @@ class FindMyAppleOptionsFlow(OptionsFlow):
         runtime = getattr(entry, "runtime_data", None)
         if runtime is not None:
             known.update(runtime.coordinator.all_devices)
+        self._names = known
         for item_id in options.get(CONF_TRACKED_ITEMS, []):
             known.setdefault(item_id, item_id)
         schema = vol.Schema(
@@ -417,6 +425,38 @@ class FindMyAppleOptionsFlow(OptionsFlow):
             }
         )
         return self.async_show_form(step_id="init", data_schema=schema, errors=errors)
+
+    async def async_step_icons(self, user_input: dict[str, Any] | None = None) -> ConfigFlowResult:
+        """One emoji field per tracked item. Empty keeps the default (Find My's emoji, else the device type's)."""
+        tracked = self._pending.get(CONF_TRACKED_ITEMS, [])
+        labels = _unique_labels({i: self._names.get(i, i) for i in tracked})
+        if not labels:
+            return self.async_create_entry(data=self._pending)
+        current = self.config_entry.options.get(CONF_ICONS) or {}
+        if user_input is not None:
+            icons = {
+                labels[label]: value.strip()[:MAX_ICON_LENGTH]
+                for label, value in user_input.items()
+                if label in labels and isinstance(value, str) and value.strip()
+            }
+            return self.async_create_entry(data={**self._pending, CONF_ICONS: icons})
+        schema = {
+            vol.Optional(label, description={"suggested_value": current.get(item_id, "")}): TextSelector()
+            for label, item_id in labels.items()
+        }
+        return self.async_show_form(step_id="icons", data_schema=vol.Schema(schema))
+
+
+def _unique_labels(names: Mapping[str, str]) -> dict[str, str]:
+    """Field labels (the item's name) to item ids. The frontend shows an untranslated key as it is."""
+    labels: dict[str, str] = {}
+    for item_id, name in names.items():
+        label, n = name or item_id, 1
+        while label in labels:
+            n += 1
+            label = f"{name or item_id} ({n})"
+        labels[label] = item_id
+    return labels
 
 
 def _device_label(device: TrackedItem) -> str:

@@ -112,6 +112,10 @@
           "away_min_interval": "Gilt direkt außerhalb einer Zone. Das Intervall wächst mit der Entfernung bis zum längsten Wert (erreicht 50 km von der nächsten Zone). Bei jeder Aktualisierung holen die Geräte eine GPS-Position.",
           "tag_interval": "Tags werden höchstens so oft geortet, egal wie kurz die Geräteintervalle sind."
         }
+      },
+      "icons": {
+        "title": "Karten-Symbole",
+        "description": "Gib für jeden Eintrag ein Emoji ein, das auf der Karte und in Karten angezeigt wird. Ein leeres Feld behält den Standard: das in „Wo ist?“ gesetzte Emoji bei Tags, sonst eines passend zum Gerätetyp."
       }
     },
     "error": {

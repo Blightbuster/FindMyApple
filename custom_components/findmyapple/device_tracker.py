@@ -10,33 +10,46 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import FindMyAppleConfigEntry
-from .const import SOURCE_ICLOUD
+from .const import CONF_ICONS, SOURCE_ICLOUD
 from .coordinator import FindMyAppleCoordinator
 from .entity import FindMyAppleEntity, add_entities_for_new_items
 from .models import TrackedItem
 
 # First match wins. The model name or Apple's device class, e.g. "iPhone16-1-1-0" or "iPod touch (4th generation)".
-_ICONS = (
-    ("iPhone", "mdi:cellphone"),
-    ("iPod", "mdi:cellphone"),
-    ("iPad", "mdi:tablet"),
-    ("Mac", "mdi:laptop"),
-    ("Watch", "mdi:watch"),
-    ("AirPods", "mdi:earbuds"),
-    ("AppleTV", "mdi:television"),
-    ("Apple TV", "mdi:television"),
+# (prefix, Material icon, default emoji). The emoji is what the map shows: markers draw the entity
+# picture, and only fall back to the entity's initials when there is none.
+_KINDS = (
+    ("iPhone", "mdi:cellphone", "📱"),
+    ("iPod", "mdi:cellphone", "📱"),
+    ("iPad", "mdi:tablet", "📱"),
+    ("Mac", "mdi:laptop", "💻"),
+    ("Watch", "mdi:watch", "⌚"),
+    ("AirPods", "mdi:earbuds", "🎧"),
+    ("AppleTV", "mdi:television", "📺"),
+    ("Apple TV", "mdi:television", "📺"),
 )
+_TAG = ("mdi:tag", "🏷️")
+_OTHER = (None, "📍")
+
+
+def _kind(item: TrackedItem) -> tuple[str | None, str]:
+    if item.source != SOURCE_ICLOUD:
+        return _TAG
+    for text in (item.raw.get("deviceClass"), item.model, item.model_display_name):
+        for prefix, icon, emoji in _KINDS:
+            if isinstance(text, str) and text.startswith(prefix):
+                return icon, emoji
+    return _OTHER
 
 
 def icon_for(item: TrackedItem) -> str | None:
-    """A Material icon for the kind of device (what shows when there is no emoji)."""
-    if item.source != SOURCE_ICLOUD:
-        return "mdi:tag"
-    for text in (item.raw.get("deviceClass"), item.model, item.model_display_name):
-        for prefix, icon in _ICONS:
-            if isinstance(text, str) and text.startswith(prefix):
-                return icon
-    return None
+    """A Material icon for the kind of device."""
+    return _kind(item)[0]
+
+
+def picture_emoji(item: TrackedItem, override: str | None = None) -> str:
+    """What the map shows: the owner's choice here, else the emoji from Find My, else the device type's."""
+    return override or item.emoji or _kind(item)[1]
 
 
 def emoji_picture(emoji: str) -> str:
@@ -91,7 +104,11 @@ class FindMyAppleTracker(FindMyAppleEntity, TrackerEntity):
 
     @property
     def entity_picture(self) -> str | None:
-        return emoji_picture(self.item.emoji) if self.item and self.item.emoji else None
+        item = self.item
+        if item is None:
+            return None
+        override = (self.coordinator.config_entry.options.get(CONF_ICONS) or {}).get(self._item_id)
+        return emoji_picture(picture_emoji(item, override))
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:

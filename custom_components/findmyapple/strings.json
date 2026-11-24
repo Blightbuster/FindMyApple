@@ -112,6 +112,10 @@
           "away_min_interval": "Used right outside a zone. The interval grows with distance up to the longest one (reached 50 km from the nearest zone). Each update makes the devices fetch a GPS position.",
           "tag_interval": "Tags are located at most this often, however short the device intervals are."
         }
+      },
+      "icons": {
+        "title": "Map icons",
+        "description": "Type an emoji for each item to show it on the map and in cards. Leave a field empty to keep the default: the emoji set in Find My for tags, or one matching the device type."
       }
     },
     "error": {

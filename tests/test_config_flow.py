@@ -14,6 +14,7 @@ from custom_components.findmyapple import account_state_store
 from custom_components.findmyapple.backends import findmy_network as fn
 from custom_components.findmyapple.backends.icloud import NoDevices, Throttled
 from custom_components.findmyapple.const import (
+    CONF_ICONS,
     CONF_INCLUDE_FAMILY,
     CONF_TAG_INTERVAL,
     CONF_TRACKED_ITEMS,
@@ -167,25 +168,27 @@ async def test_reauth_replaces_the_session_and_keeps_tag_keys(hass: HomeAssistan
     assert stored["accessories"] == [{"k": 1}]
 
 
-async def test_options_reject_min_above_max(hass: HomeAssistant, apple: Apple) -> None:
+async def _setup_entry(hass: HomeAssistant, options: dict) -> MockConfigEntry:
     entry = MockConfigEntry(
         domain=DOMAIN,
         unique_id="alex@example.com",
         data={CONF_USERNAME: "Alex@Example.com"},
-        options={CONF_TRACKED_ITEMS: ["iphone-1"], CONF_INCLUDE_FAMILY: True},
+        options=options,
     )
     entry.add_to_hass(hass)
     await account_state_store(hass, entry.unique_id).async_save({"account": {"type": "account"}, "accessories": []})
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
+    return entry
 
+
+_BASE = {CONF_INCLUDE_FAMILY: True, "home_interval": 15, CONF_TAG_INTERVAL: 15}
+
+
+async def test_options_reject_min_above_max(hass: HomeAssistant, apple: Apple) -> None:
+    entry = await _setup_entry(hass, {CONF_TRACKED_ITEMS: ["iphone-1"], CONF_INCLUDE_FAMILY: True})
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    base = {
-        CONF_TRACKED_ITEMS: ["iphone-1", "ipad-1"],
-        CONF_INCLUDE_FAMILY: True,
-        "home_interval": 15,
-        CONF_TAG_INTERVAL: 15,
-    }
+    base = {CONF_TRACKED_ITEMS: ["iphone-1", "ipad-1"], **_BASE}
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {**base, "away_min_interval": 40, "away_max_interval": 30}
     )
@@ -193,8 +196,33 @@ async def test_options_reject_min_above_max(hass: HomeAssistant, apple: Apple) -
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {**base, "away_min_interval": 5, "away_max_interval": 30}
     )
+    assert result["step_id"] == "icons"  # the settings are valid: on to the emoji
+    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert entry.options[CONF_TRACKED_ITEMS] == ["iphone-1", "ipad-1"]
+
+
+async def test_options_let_you_pick_an_emoji_per_item(hass: HomeAssistant, apple: Apple) -> None:
+    entry = await _setup_entry(hass, {CONF_TRACKED_ITEMS: ["iphone-1", "T1"], **_BASE, CONF_ICONS: {"T1": "🚲"}})
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {CONF_TRACKED_ITEMS: ["iphone-1", "T1"], **_BASE, "away_min_interval": 5, "away_max_interval": 30},
+    )
+    assert result["step_id"] == "icons"
+    fields = {str(k): k for k in result["data_schema"].schema}
+    assert len(fields) == 2  # one field per tracked item, labelled with the item's name
+    names = {i: n for i, n in entry.runtime_data.coordinator.all_devices.items()}
+    phone, tag = fields[names["iphone-1"]], fields[names["T1"]]
+    assert tag.description == {"suggested_value": "🚲"}  # the current choice is pre-filled
+    assert phone.description == {"suggested_value": ""}
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {names["iphone-1"]: " 🏠 ", names["T1"]: ""}  # set one, clear the other
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert entry.options[CONF_ICONS] == {"iphone-1": "🏠"}
+    assert entry.options[CONF_TRACKED_ITEMS] == ["iphone-1", "T1"]
 
 
 def test_two_factor_methods_are_described_for_people(monkeypatch) -> None:

@@ -15,5 +15,5 @@
     "machoadi@git+https://github.com/parawanderer/os-findmy-e@595d39810639d750715babc30b063d4ac8f2c437#subdirectory=tools/machoadi",
     "FindMy@git+https://github.com/parawanderer/FindMy.py@87ece127eda82926322a7c062f430f465152c782"
   ],
-  "version": "0.2.1"
+  "version": "0.2.2"
 }

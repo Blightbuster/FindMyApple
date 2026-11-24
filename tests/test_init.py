@@ -14,6 +14,7 @@ from custom_components.findmyapple import account_state_store
 from custom_components.findmyapple.backends.icloud import AuthFailed, Throttled
 from custom_components.findmyapple.const import (
     BACKOFF_START,
+    CONF_ICONS,
     CONF_INCLUDE_FAMILY,
     CONF_TAG_INTERVAL,
     CONF_TRACKED_ITEMS,
@@ -86,23 +87,34 @@ async def test_setup_creates_entities_for_devices_and_tags(hass: HomeAssistant, 
     assert apple.fmip.instances[-1].fetch_calls == [True]
 
 
+def _picture(hass: HomeAssistant, entity_id: str) -> str:
+    return hass.states.get(entity_id).attributes["entity_picture"]
+
+
 async def test_tag_emoji_becomes_the_picture_and_devices_get_type_icons(hass: HomeAssistant, apple: Apple) -> None:
     await _setup(hass, _entry())
     tag = hass.states.get(f"device_tracker.{TAG_SLUG}")
-    assert tag.attributes["entity_picture"].startswith("data:image/svg+xml")
-    assert "%F0%9F%94%91" in tag.attributes["entity_picture"]  # the key emoji, URL-encoded
+    assert "%F0%9F%94%91" in tag.attributes["entity_picture"]  # Find My's key emoji, URL-encoded
     assert tag.attributes["icon"] == "mdi:tag"
     phone = hass.states.get("device_tracker.alex_s_iphone")
     assert phone.attributes["icon"] == "mdi:cellphone"
-    assert "entity_picture" not in phone.attributes  # no emoji: the icon shows
+    # Markers draw the entity picture and fall back to the initials without one ("Mi"), so devices get one too.
+    assert "%F0%9F%93%B1" in phone.attributes["entity_picture"]  # the phone emoji
 
 
-async def test_tag_without_emoji_keeps_the_tag_icon(hass: HomeAssistant, apple: Apple) -> None:
+async def test_tag_without_emoji_gets_the_default_tag_picture(hass: HomeAssistant, apple: Apple) -> None:
     apple.session.emojis = {}
     await _setup(hass, _entry())
-    tag = hass.states.get(f"device_tracker.{TAG_SLUG}")
-    assert "entity_picture" not in tag.attributes
-    assert tag.attributes["icon"] == "mdi:tag"
+    assert "%F0%9F%8F%B7" in _picture(hass, f"device_tracker.{TAG_SLUG}")  # the label emoji
+
+
+async def test_the_owner_can_choose_the_emoji_for_any_item(hass: HomeAssistant, apple: Apple) -> None:
+    entry = _entry()
+    entry.add_to_hass(hass)
+    hass.config_entries.async_update_entry(entry, options={**entry.options, CONF_ICONS: {"T1": "🚲", "iphone-1": "🏠"}})
+    await _setup(hass, entry)
+    assert "%F0%9F%9A%B2" in _picture(hass, f"device_tracker.{TAG_SLUG}")  # beats Find My's emoji
+    assert "%F0%9F%8F%A0" in _picture(hass, "device_tracker.alex_s_iphone")  # beats the device default
 
 
 async def test_untracked_tag_is_not_fetched(hass: HomeAssistant, apple: Apple) -> None:
